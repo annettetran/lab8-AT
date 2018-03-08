@@ -1,0 +1,41 @@
+---
+title: "LabWeek8 - Github Demo"
+author: "Annette Tran"
+date: "March 8, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(sf)
+library(tmap)
+library(leaflet)
+library(spatstat)
+library(maptools)
+
+oil <- read_csv("oil_spills.csv")
+
+```
+
+##Column graph of Texas oil spills
+
+```{r}
+df <- oil %>% 
+  filter(`Accident State` == "TX" & `Accident Year` < 2017) %>% 
+  group_by(`Accident Year`) %>% 
+  summarise(Loss = sum(`Net Loss (Barrels)`)) #summing net loss for each year
+
+colnames(df) <- c("Year", "Loss")
+
+```
+
+```{r}
+ggplot(df, aes(x = Year, y = Loss))+
+  geom_col()
+
+```
+
