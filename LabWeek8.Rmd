@@ -1,5 +1,5 @@
 ---
-title: "LabWeek8 - Github Demo"
+title: "LabWeek8 - Github Demo and CSR Tests"
 author: "Annette Tran"
 date: "March 8, 2018"
 output: html_document
@@ -53,5 +53,99 @@ oil_sf <- st_as_sf(df_loc, coords = c("longitude", "latitude"), crs = 4326)
 leaflet(oil_sf) %>% 
   addTiles() %>% 
   addMarkers()
+```
+
+## tmap plot with Texas state shapefile
+
+```{r}
+
+states <- st_read(dsn = ".", layer= "states")
+
+tex_border <- states %>%
+  filter(STATE_NAME == "Texas") %>% 
+  st_transform(4326)
+
+plot(tex_border)
+
+tm_shape(tex_border) +
+  tm_polygons() +
+  tm_shape(oil_sf) +
+  tm_dots(size = 0.3)
+
+```
+
+##Convert data to spatial points patterns to do point pattern analysis
+(combination of point data and the bounding window)
+
+```{r}
+#convert back from simple features to spatial data frame
+spill_sp <- as(oil_sf, "Spatial")
+spill_ppp <- as(spill_sp, "ppp") #convert to point pattern
+
+tx_sp <- as(tex_border, "Spatial")
+tx_owin <- as(tx_sp, "owin") #convert to window so you're working inside the tx shape
+
+all_ppp <- ppp(spill_ppp$x, spill_ppp$y, window = tx_owin)
+
+```
+
+## A density plot:
+
+```{r}
+
+plot(density(all_ppp, sigma = 0.4))
+```
+
+##Quadrat test for spatial evenness
+
+```{r}
+oil_qt <- quadrat.test(all_ppp, nx = 5, ny= 5)
+#5 regions that exist horizontally and vertically
+```
+
+null hypothesis: this data follows CSR
+p value is small, so data are NOT CSR, which means its not evenly distributed
+
+```{r}
+plot(all_ppp)
+plot(oil_qt, add = TRUE, cex = 0.6) #cex is font size
+```
+Every quadrant would have 14.5 if it was CSR. In quadrants that aren't full, it automatically calculates the expected number of events (if it was CSR) according to the proportion of the quadrant to a full quadrant.
+Upper left is actual count.
+
+## G function for Nearest Neighbor Analysis
+
+```{r}
+
+lag <- seq(0,1, by = 0.01) #created to compare to CSR data
+
+#calcuate G function of my data
+
+oil_gfun <- envelope(all_ppp, fun = Gest, r = lag, nsim = 100)
+#r= distance, nsim= # of simulations for r (CSR data)
+
+ggplot(oil_gfun, aes(x = lag, y = obs)) +
+  geom_line(color = "black")+
+  geom_line(aes(x = lag, y = theo), color = "red")
+#red is modeled CSR data, black is the oil data
+#theo is modeled data for CSR
+#r (lag) observed data has a higher proportion of point pairs with nearest neighbors at shortest distances compared to CSR data
+  
+
+```
+
+##Nearest neighbor using the L-function (Ripley's K, standarized)
+
+```{r}
+lag2 <- seq(0,3, by = 0.5)
+
+oil_lfun <- envelope(all_ppp, fun = Lest, r= lag2, nsim = 20, global = TRUE)
+#global=true ensures it includes everything in the window
+```
+
+```{r}
+ggplot(oil_lfun, aes(x = lag2, y=obs))+
+  geom_line(color = "black")+
+  geom_line(aes(x =lag2, y = theo), color = "blue")
 ```
 
